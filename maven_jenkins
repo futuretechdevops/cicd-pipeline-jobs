@@ -1,0 +1,27 @@
+pipeline {
+    agent any
+    tools { 
+        maven 'Maven-360' 
+        jdk 'JAVA-11' 
+    }
+    stages {
+        stage('Checkout the Code') {
+            steps {
+                git 'https://github.com/futuretechdevops/hello-world.git'
+            }
+        }
+        stage('MVN Build and Publish the Unit Test Results') {
+            steps {
+                sh 'mvn clean install'
+            }
+            post {
+                always {
+                    junit(
+                        allowEmptyResults: true,
+                        testResults: '**/target/surefire-reports/*.xml'
+                    )
+                }
+            }
+        }
+    }
+}
