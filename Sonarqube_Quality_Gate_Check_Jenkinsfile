@@ -1,0 +1,46 @@
+pipeline {
+    agent any
+    tools { 
+        maven 'Maven-360' 
+        jdk 'JAVA-11' 
+    }
+    stages {
+        stage('Checkout the Code') {
+            steps {
+                git 'https://github.com/futuretechdevops/hello-world.git'
+            }
+        }
+        stage('MVN Build and Publish the Unit Test Results') {
+            steps {
+                sh 'mvn clean install'
+            }
+            post {
+                always {
+                    junit(
+                        allowEmptyResults: true,
+                        testResults: '**/target/surefire-reports/*.xml'
+                    )
+                }
+            }
+        }
+        stage ('Code Quality') {
+            environment {
+                scannerHome = tool 'sonar-scanner-4.7'
+            }
+            steps {
+                withSonarQubeEnv('SonarQube-Server-CE-9.8') {
+                    sh "${scannerHome}/bin/sonar-scanner \
+                    -D sonar.projectKey=cicd-demo \
+                    -D sonar.exclusions=vendor/**,resources/**,**/*.java"
+                }
+            }
+        }
+        stage('SonarQube Quality Gates Check'){
+            steps {
+                timeout(time: 15, unit: 'MINUTES') {
+                    waitForQualityGate abortPipeline: true
+                }
+            }
+        }
+    }
+}
