@@ -1,0 +1,59 @@
+pipeline {
+    agent any
+    
+    tools { 
+        maven 'Maven-360' 
+        jdk 'JAVA-11' 
+    }
+    stages {
+        stage('Clone the Code') {
+            steps {
+                git 'https://github.com/futuretechdevops/hello-world.git'
+            }
+        }
+        stage('MVN Build and Publish the Unit Test Results') {
+            steps {
+                sh 'mvn clean install'
+            }
+        }
+        stage('Artifact-Upload') {
+            steps {
+                echo "build-version ${env.POM_VERSION}"
+                script {
+                    env.POM_VERSION = sh(returnStdout: true, script: "cat pom.xml  |grep 'version' |head -1 |awk -F '[><]' '{print \$3}'").trim()
+                    env.RELEASE_VERSION = sh(returnStdout: true, script: "cat pom.xml  |grep 'version' |head -1 |awk -F '[><]' '{print \$3}' |awk -F '[-]' '{print \$2}'").trim()
+                    sh '[[ -d webapp/target2 ]] && echo "target2 directory exist" || mkdir webapp/target2'
+                    sh '[[ $(ls -A webapp/target2) ]] && rm -rf webapp/target2/* || echo "target2 empty directory"'
+                    sh 'cp webapp/target/webapp.war webapp/target2/$BUILD_NUMBER-$RELEASE_VERSION-webapp.war' 
+                    
+                    if (env.RELEASE_VERSION == 'RELEASE') {
+                        env.RELEASE_VERSION = "Release"
+                        echo "${env.RELEASE_VERSION}"
+                    }
+                    else {
+                        env.RELEASE_VERSION = "Snapshot"
+                        echo "${env.RELEASE_VERSION}"
+                    }
+                    rtServer (
+                        id: "jfrog", 
+                        url: "http://3.90.5.187:8082",
+                        credentialsId: "4fe16cb0-df33-4b63-a117-68c127eacd40"
+                    )
+                    rtUpload (
+                        serverId: 'jfrog',
+                        spec: '''{
+                            "files": [
+                                {
+                               "pattern": "webapp/target2/*.war",
+                               "target": "artifactory/\$RELEASE_VERSION/com/example/maven-project/webapp/\$POM_VERSION/"
+                                }
+                            ]
+                        }''',
+                        buildName: "$JOB_NAME",
+                        buildNumber: "$BUILD_NUMBER"
+                    )
+                }
+            }
+        }
+    }
+}
