@@ -1,0 +1,41 @@
+pipeline {
+    agent {
+        label 'docker'
+    }
+    stages {
+        stage('API Testing') {
+            steps {
+                script {
+                    try {
+                        env.STABLE_IMAGE = sh(script: 'docker ps -a --format \"table {{.Image}}\\t{{.Names}}\" |grep tomcat-qa1 |awk \'{print \$1}\'', returnStdout: true).trim()
+                        echo "${env.STABLE_IMAGE}"
+                        def code = sh(script: 'curl -o /dev/null -s -w "%{http_code}\n" http://127.0.0.1:8090/webapp/', returnStdout: true).trim()
+                        echo "HTTP response status code: $code"
+                        def response = sh(script: 'curl -i http://127.0.0.1:8090/webapp/', returnStdout: true)
+                        
+                        if (code != '200') {
+                            echo response
+                            currentBuild.result = 'UNSTABLE'
+                            currentStage.result = 'UNSTABLE'
+                            sh 'exit 1'
+                        }
+                    }
+                    catch (Exception e) {
+                        sh 'docker stop $(docker ps -a |grep tomcat-qa1 |awk "{print \\$1}")'
+                        sh 'docker rm $(docker ps -a |grep tomcat-qa1 |awk "{print \\$1}")'
+                        sh 'echo "tomcat-qa1 container STOPPED and REMOVED"'
+                        
+                        //sh 'printenv'
+                        
+                        sh 'docker run -d --name tomcat-qa1 -p 8090:8090 $STABLE_IMAGE'
+                        sh 'echo "Started tomcat-qa1 container with STABLE_IMAGE: $STABLE_IMAGE"'
+                    }
+                    finally {
+                        sh 'echo "tomcat-qa1 Container final status"'
+                        sh 'docker ps -a |grep tomcat-qa1'
+                    }
+                }
+            }
+        }
+    }
+}
