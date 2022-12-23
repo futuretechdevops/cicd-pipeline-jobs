@@ -105,26 +105,67 @@ pipeline {
                 label 'docker'
             }
             steps {
-                sh 'docker stop tomcat || true && docker rm tomcat || true'
-                sh 'docker run -d --name tomcat -p 8090:8090 futuretechdevops/tomcat:\$BUILD_NUMBER-\$RELEASE_VERSION'
+                script {
+                    env.STABLE_IMAGE = sh(script: 'docker ps -a --format \"table {{.Image}}\\t{{.Names}}\" |grep tomcat |awk \'{print \$1}\'', returnStdout: true).trim()
+                    echo "${env.STABLE_IMAGE}"
+                    sh 'docker stop tomcat || true && docker rm tomcat || true'
+                    sh 'docker run -d --name tomcat -p 8090:8090 futuretechdevops/tomcat:\$BUILD_NUMBER-\$RELEASE_VERSION'
+                }
+            }
+        }
+        stage('API || Sanity Testing') {
+            agent {
+                label 'docker'
+            }
+            steps {
+                script {
+                    try {
+                        echo "${env.STABLE_IMAGE}"
+                        sh 'sleep 60'
+                        def code = sh(script: 'curl -o /dev/null -s -w "%{http_code}\n" http://127.0.0.1:8090/webapp/', returnStdout: true).trim()
+                        echo "HTTP response status code: $code"
+                        def response = sh(script: 'curl -i http://127.0.0.1:8090/webapp/', returnStdout: true)
+                        
+                        if (code != '200') {
+                            echo response
+                            currentBuild.result = 'UNSTABLE'
+                            currentStage.result = 'UNSTABLE'
+                            sh 'exit 1'
+                        }
+                    }
+                    catch (Exception e) {
+                        sh 'docker stop $(docker ps -a |grep tomcat |awk "{print \\$1}")'
+                        sh 'docker rm $(docker ps -a |grep tomcat |awk "{print \\$1}")'
+                        sh 'echo "tomcat container STOPPED and REMOVED"'
+                        
+                        //sh 'printenv'
+                        
+                        sh 'docker run -d --name tomcat -p 8090:8090 $STABLE_IMAGE'
+                        sh 'echo "Started tomcat container with STABLE_IMAGE: $STABLE_IMAGE"'
+                    }
+                    finally {
+                        sh 'echo "tomcat Container final status"'
+                        sh 'docker ps -a |grep tomcat'
+                    }
+                }
             }
         }
     }
     post { 
         always { 
-            echo 'I will always say Hello again!'
+            echo 'Email Notification sent to : always receipents'
         }
         success {
-            echo 'I succeeded!'
+            echo 'Email Notification sent to : Succeess receipents --> I Succeeded!'
         }
         unstable {
-            echo 'I am unstable :/'
+            echo 'Email Notification sent to : DEV/DEVOPS receipents --> I unstable :/'
         }
         failure {
-            echo 'I failed :('
+            echo 'Email Notification sent to : Failure receipents --> I failed :('
         }
         changed {
-            echo 'Things were different before...'
+            echo 'Email Notification sent to : changed receipents --> Things were different before...'
         }
     }
 }
