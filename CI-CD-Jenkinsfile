@@ -100,7 +100,7 @@ pipeline {
                 sh 'docker push futuretechdevops/tomcat:\$BUILD_NUMBER-\$RELEASE_VERSION'
             }
         }
-        stage('docker-run') {
+        stage('docker-run || Deployment') {
             agent {
                 label 'docker'
             }
@@ -108,6 +108,23 @@ pipeline {
                 sh 'docker stop tomcat || true && docker rm tomcat || true'
                 sh 'docker run -d --name tomcat -p 8090:8090 futuretechdevops/tomcat:\$BUILD_NUMBER-\$RELEASE_VERSION'
             }
+        }
+    }
+    post { 
+        always { 
+            echo 'I will always say Hello again!'
+        }
+        success {
+            echo 'I succeeded!'
+        }
+        unstable {
+            echo 'I am unstable :/'
+        }
+        failure {
+            echo 'I failed :('
+        }
+        changed {
+            echo 'Things were different before...'
         }
     }
 }
