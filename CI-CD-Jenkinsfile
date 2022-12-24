@@ -127,9 +127,7 @@ pipeline {
                         def response = sh(script: 'curl -i http://127.0.0.1:8090/webapp/', returnStdout: true)
                         
                         if (code != '200') {
-                            echo response
-                            currentBuild.result = 'UNSTABLE'
-                            currentStage.result = 'UNSTABLE'
+                            echo response                     
                             sh 'exit 1'
                         }
                     }
@@ -142,6 +140,9 @@ pipeline {
                         
                         sh 'docker run -d --name tomcat -p 8090:8090 $STABLE_IMAGE'
                         sh 'echo "Started tomcat container with STABLE_IMAGE: $STABLE_IMAGE"'
+                        currentBuild.result = 'FAILED'
+                        currentStage.result = 'FAILED'
+                        sh 'exit 1'
                     }
                     finally {
                         sh 'echo "tomcat Container final status"'
