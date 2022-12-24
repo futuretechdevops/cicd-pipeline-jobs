@@ -113,7 +113,7 @@ pipeline {
                 }
             }
         }
-        stage('API || Sanity Testing') {
+        /*stage('API || Sanity Testing') {
             agent {
                 label 'docker'
             }
@@ -152,7 +152,7 @@ pipeline {
                     }
                 }
             }
-        }
+        }*/
     }
     post { 
         always { 
